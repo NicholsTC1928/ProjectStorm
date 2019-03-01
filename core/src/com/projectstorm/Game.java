@@ -6,6 +6,7 @@ import javax.swing.*;
 import java.awt.event.*;
 //import java.lang.Math;
 import java.awt.geom.AffineTransform;
+import java.io.File;
 import java.util.LinkedList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -13,36 +14,52 @@ import java.util.TimerTask;
 import java.lang.reflect.*;
 import java.util.Iterator;
 import java.util.Random;
+import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.*;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
+import org.ini4j.Ini;
 
 /*
 The following PC port necessities HAVE BEEN properly implemented:
     -FPS Counter
     -Fullscreen Mode
-    -FPS Cap (The physics remain constant, regardless of the frame rate! (Just be sure to add methods to the
-    updateGameLogic(dt) method that modify all physics-related variables.))
+    -V-Sync Toggle (This is part of the LibGDX migration.)
 
 The following PC port necessities NEED TO BE properly implemented:
     -Key Bindings
     -Resolution Scaling
-    -V-Sync Toggle
+    -FPS Cap (The physics remain constant, regardless of the frame rate! (Just be sure to add methods to the
+    updateGameLogic(dt) method that modify all physics-related variables.))
 */
 
-public class Game extends JPanel implements Runnable {
+public class Game extends ApplicationAdapter {
     //The following two variables are used for key bindings.
     private final int maxNumberOfEnemies = 1;
     private static final int IFW = JComponent.WHEN_IN_FOCUSED_WINDOW;
     private static JLabel input = new JLabel();
     private boolean isInGame = false;
-    private boolean isDebugModeOn;
+    private boolean isDebugModeOn = false;
     private boolean isMultithreadingOn = true;
-    private boolean displayFPSCount;
+    private boolean displayFPSCount = true;
+    private boolean displayFPSCountOnThisRun = false;
     private boolean gameIsPaused;
+    /*
     private final double SCALE_X;
     private final double SCALE_Y;
     private final double INV_SCALE_X;
     private final double INV_SCALE_Y;
     private final double SCALE_WORLD_X_TO_PIXELS;
     private final double SCALE_WORLD_Y_TO_PIXELS;
+    */
     private Thread runnerAnim;
     volatile boolean running = true;
     private final int DELAY = 25;
@@ -117,27 +134,28 @@ public class Game extends JPanel implements Runnable {
     private String shootDownKey = "DOWN";
     private String shootLeftKey = "LEFT";
     private String shootRightKey = "RIGHT";
-    private String slideKey = "SHIFT";
-    private String dolphinDiveKey = "CONTROL";
+    private String slideKey = "SHIFT_LEFT";
+    private String dolphinDiveKey = "CONTROL_LEFT";
     private String interactKey = "F"; //More often than not, people will use "E" for this. Hence, key bindings are essential.
     private String healKey = "E";
     private String meleeKey = "V";
     private String previousWeaponKey = "X";
     private String nextWeaponKey = "C";
-    private String weapon1Key = "1";
-    private String weapon2Key = "2";
-    private final String weaponMuleKickKey = "3";
-    private String consoleKey = "BACK_QUOTE"; //Supposedly, BACK_QUOTE represents `.
+    private String weapon1Key = "NUM_1";
+    private String weapon2Key = "NUM_2";
+    private String weaponMuleKickKey = "NUM_3";
+    private String consoleKey = "GRAVE"; //Supposedly, GRAVE represents `.
 
     private Timer timerForFPS = new Timer();
     private TimerTask updateFPS = new TimerTask(){
         @Override public void run(){
             if(!displayFPSCount) return;
-            framesToDisplay = (totalFramesCount);
+            else framesToDisplay = Gdx.graphics.getFramesPerSecond();
             //I don't know why, but dividing the totalFramesCount by 2 fixes the FPS display.
             //Setting a variable to display the current frame count every second makes sure that the counter is only
             //printed once every second.
-            repaint(0,0,70,20); //This paints only the part of the screen displaying the frame rate counter rectangle.
+
+            //repaint(0,0,70,20); //This paints only the part of the screen displaying the frame rate counter rectangle.
             totalFramesCount = 0;
         }
     };
@@ -149,11 +167,66 @@ public class Game extends JPanel implements Runnable {
     private boolean spawnEnemiesTimerIsStopped;
     private int remainingSpawnEnemiesTimeForDelay;
     private int numEnemies;
-   
+    SpriteBatch batch;
+    Texture img;
+    OrthographicCamera camera;
+    Viewport viewport;
+    BitmapFont fontArialNarrow;
+    FreeTypeFontGenerator gen;
 
+    @Override
+    public void create () {
+        batch = new SpriteBatch();
+        img = new Texture("badlogic.jpg");
+        gen = new FreeTypeFontGenerator(Gdx.files.internal("fonts/ARIALN.TTF"));
+        FreeTypeFontParameter param = new FreeTypeFontParameter();
+        param.size = 54;
+        fontArialNarrow = gen.generateFont(param);
+        fontArialNarrow.getData().setScale(0.35f,0.35f);
+        //fontArialNarrow = new BitmapFont(Gdx.files.internal("CustomFont.fnt"));
+
+        camera = new OrthographicCamera();
+        viewport = new FitViewport(1920,1080,camera);
+        viewport.apply();
+        camera.position.set((camera.viewportWidth / 2),(camera.viewportHeight / 2),0);
+    }
+
+    public void initFieldValuesFromINIFile(){
+        Ini configINI;
+        try {
+            configINI = new Ini(new File("%AppData%/ProjectStorm/Config.ini"));
+            this.isDebugModeOn = configINI.get("General","isDebugModeOn",boolean.class);
+            this.displayFPSCount = configINI.get("General","displayFPSCount",boolean.class);
+            this.moveUpKey = configINI.get("Key Bindings","moveUpKey",String.class);
+            this.moveDownKey = configINI.get("Key Bindings","moveDownKey",String.class);
+            this.moveLeftKey = configINI.get("Key Bindings","moveLeftKey",String.class);
+            this.moveRightKey = configINI.get("Key Bindings","moveRightKey",String.class);
+            this.shootUpKey = configINI.get("Key Bindings","shootUpKey",String.class);
+            this.shootDownKey = configINI.get("Key Bindings","shootDownKey",String.class);
+            this.shootLeftKey = configINI.get("Key Bindings","shootLeftKey",String.class);
+            this.shootRightKey = configINI.get("Key Bindings","shootRightKey",String.class);
+            this.slideKey = configINI.get("Key Bindings","slideKey",String.class);
+            this.dolphinDiveKey = configINI.get("Key Bindings","dolphinDiveKey",String.class);
+            this.interactKey = configINI.get("Key Bindings","interactKey",String.class);
+            this.healKey = configINI.get("Key Bindings","healKey",String.class);
+            this.meleeKey = configINI.get("Key Bindings","meleeKey",String.class);
+            this.previousWeaponKey = configINI.get("Key Bindings","previousWeaponKey",String.class);
+            this.nextWeaponKey = configINI.get("Key Bindings","nextWeaponKey",String.class);
+            this.weapon1Key = configINI.get("Key Bindings","weapon1Key",String.class);
+            this.weapon2Key = configINI.get("Key Bindings","weapon2Key",String.class);
+            this.weaponMuleKickKey = configINI.get("Key Bindings","weaponMuleKickKey",String.class);
+            this.consoleKey = configINI.get("Key Bindings","consoleKey",String.class);
+        }
+        catch(Exception e){
+            System.out.println("There was an error in reading the configuration file. (If this is because the file " +
+                    "does not exist, then a set of default values should be created.)");
+        }
+
+    }
 
     public Game(){
         initGameBoard();
+        initFieldValuesFromINIFile();
         //startThreadForAnimation();
         //Could this thread fix the FPS fluctuations by forcing Java to use a high-resolution timer?
         Thread consistencyCheck = new Thread(){
@@ -229,27 +302,23 @@ public class Game extends JPanel implements Runnable {
             -Next Weapon
             -Developer Console
         */
-        add(input);
+        //add(input);
         
         setActionMap(MOVE_UP,new MoveUpAction());
-        this.isDebugModeOn = InitializeWindow.getDebugModeState();
-        this.displayFPSCount = InitializeWindow.getFPSCountState();
-        this.SCALE_X = InitializeWindow.getScaleX();
-        this.INV_SCALE_X = (1.0 / SCALE_X);
-        this.SCALE_Y = InitializeWindow.getScaleY();
-        this.INV_SCALE_Y = (1.0 / SCALE_Y);
-        this.SCALE_WORLD_X_TO_PIXELS = (SCALE_X * 1920.0) / 400.0;
-        this.SCALE_WORLD_Y_TO_PIXELS = (SCALE_Y * 1080.0) / 400.0;
+        //this.isDebugModeOn = InitializeWindow.getDebugModeState();
+        //this.displayFPSCount = DesktopLauncher.getFPSCountState(); - Some way to determine this from a file will be needed.
+        //this.SCALE_X = InitializeWindow.getScaleX();
+        //this.INV_SCALE_X = (1.0 / SCALE_X);
+        //this.SCALE_Y = InitializeWindow.getScaleY();
+        //this.INV_SCALE_Y = (1.0 / SCALE_Y);
+        //this.SCALE_WORLD_X_TO_PIXELS = (SCALE_X * 1920.0) / 400.0;
+        //this.SCALE_WORLD_Y_TO_PIXELS = (SCALE_Y * 1080.0) / 400.0;
         if(this.isDebugModeOn){
             this.isInGame = true;
             System.out.println("Debug Mode has been successfully activated.");
             //Debug Methods
             //Method 1: Mouse click prints mouse location to the console
-            addMouseListener(new MouseAdapter(){
-            public void mousePressed(MouseEvent e){
-                System.out.println("Mouse Location: (" + e.getX() + ", " + e.getY() + ")");
-            }
-            });
+
             //End Method 1
         }
         timerForFPS.scheduleAtFixedRate(updateFPS,1000,1000);
@@ -257,13 +326,13 @@ public class Game extends JPanel implements Runnable {
             startSpawnEnemiesTimer(2500);
         }
     }
-
+/*
     @Override public void addNotify(){
         super.addNotify();
         runnerAnim = new Thread(this);
         runnerAnim.start();
     }
-
+/*
     @Override public void paintComponent(Graphics g){
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
@@ -284,6 +353,7 @@ public class Game extends JPanel implements Runnable {
         }
 
     }
+*/
     
     private void startSpawnEnemiesTimer(int timeRemaining){
         spawnEnemiesTimer = new Timer();
@@ -330,7 +400,7 @@ public class Game extends JPanel implements Runnable {
         spawnEnemiesTimer.cancel();
         this.spawnEnemiesTimerIsStopped = true;
     }
-
+/*
     private void drawPlayer(Graphics g){
         //Replace the rectangle with the image of the player when it is ready.
         g.setColor(Color.BLACK);
@@ -381,12 +451,12 @@ public class Game extends JPanel implements Runnable {
                 g2.draw(rect);
                 g2.fill(rect);
                 g2.setTransform(old);
-                */
+
                 Toolkit.getDefaultToolkit().sync();
             }
         }
     }
-    
+*/
     private void drawFPSRect(Graphics g){
         int alpha = 127; //This variable controls transparency, with 127 being ~50% of the total (255).
         Color FPSRectangle = new Color(0,0,0,alpha); //This creates a black color with 50% transparency.
@@ -417,18 +487,46 @@ public class Game extends JPanel implements Runnable {
         g.drawString(currentFrameRate,0,15);
         Toolkit.getDefaultToolkit().sync();
     }
-
+/*
     private void startThreadForAnimation(){
         if(runnerAnim == null){
             runnerAnim = new Thread(this);
             runnerAnim.start();
         }
     }
-
+*/
     private void stopThread(){
         runnerAnim = null;
     }
 
+    @Override public void render(){
+        camera.update();
+        Gdx.gl.glClearColor(0,0,0,0); //This creates a black background. It should only be used while a real background
+        //has not been implemented.
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        batch.setProjectionMatrix(camera.combined);
+        fontArialNarrow.setColor(0,1,0,1);
+        batch.begin();
+        fontArialNarrow.draw(batch,framesToDisplay + " FPS",10,(camera.viewportHeight - 10));
+        //Add other drawing tasks here
+        batch.end();
+    }
+
+    @Override public void dispose(){
+        //IMPORTANT: Any class that implements the Disposable interface needs to be disposed! (Whether or not a class
+        //implements the disposable interface can be found in the LibGDX documentation here:
+        //https://libgdx.badlogicgames.com/ci/nightlies/docs/api/overview-summary.html.)
+        batch.dispose();
+        img.dispose();
+        gen.dispose();
+        fontArialNarrow.dispose();
+    }
+
+    @Override public void resize(int width,int height){
+        viewport.update(width,height);
+        camera.position.set((camera.viewportWidth / 2),(camera.viewportHeight / 2),0);
+    }
+/*
     @Override public void run(){
         long beforeTime = System.nanoTime();
         //Animation Loop (Main Game Loop?)
@@ -473,12 +571,16 @@ public class Game extends JPanel implements Runnable {
                     -1 second (1000 ms) gives 2 FPS
                     -.5 seconds (500 ms) gives 4 FPS
                     -.25 seconds (250 ms) gives 8 FPS
-                */
+
                 //else Thread.sleep(sleep); //For an uncapped frame rate, should it be "Thread.sleep(0)" instead?
             }
             catch(InterruptedException e){}
             //beforeTime = System.currentTimeMillis();
         }
+    }
+*/
+    private boolean isKeyBeingPressed(String key){
+        return (Gdx.input.isKeyPressed(Input.Keys.valueOf(key)));
     }
 
     private void updateGameLogic(double dt){
@@ -487,6 +589,10 @@ public class Game extends JPanel implements Runnable {
         This would mean having to make sure that each physics-related variable is a double (recommended), or that dt is
         cast as a type that is compatible with each physics-related variable.
         */
+        this.isMovingUp = isKeyBeingPressed(moveUpKey);
+        this.isMovingDown = isKeyBeingPressed(moveDownKey);
+        this.isMovingLeft = isKeyBeingPressed(moveLeftKey);
+        this.isMovingRight = isKeyBeingPressed(moveRightKey);
         player.setSpeedX(player.getSpeedX() * player.getSpeedMultiplier() * dt);
         player.setSpeedY(player.getSpeedY() * player.getSpeedMultiplier() * dt);
         if(this.isDebugModeOn){
@@ -611,14 +717,14 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void initGameBoard(){
-        setBackground(Color.BLACK);
+        //Gdx.gl.glClearColor(0,0,0,0); //This sets the LibGDX background to black.
         //Dimension resolution = Toolkit.getDefaultToolkit().getScreenSize();
         //int width = 1920;
         //int height = 975;
         //Dimension tempDimension = new Dimension(1920,975);
         //setPreferredSize(resolution);
     }
-
+/*
     private int scaleWorldToPixelsX(double worldValue){
         return (int)(worldValue * SCALE_WORLD_X_TO_PIXELS);
     }
@@ -634,15 +740,15 @@ public class Game extends JPanel implements Runnable {
     private double scalePixelsToWorldY(int pixelValue){
         return ((double) pixelValue * SCALE_Y);
     }
-
+*/
     private void initializeGameSpawn(){
         //The first thing that should be done is to scale the in-game measurement units with the screen resolution.
         double worldTopLeftX = 0.0;
         double worldTopLeftY = 0.0;
         double worldBottomRightX = 400.0;
         double worldBottomRightY = 400.0;
-        double scaleWorldXToScreen = (worldBottomRightX / (this.SCALE_X * 1920.0));
-        double scaleWorldYToScreen = (worldBottomRightY / (this.SCALE_Y * 1080.0));
+        //double scaleWorldXToScreen = (worldBottomRightX / (this.SCALE_X * 1920.0));
+        //double scaleWorldYToScreen = (worldBottomRightY / (this.SCALE_Y * 1080.0));
         if (!isDebugModeOn) {
             //Load an image of the background if the player is not currently in debug mode.
         }
@@ -670,7 +776,7 @@ public class Game extends JPanel implements Runnable {
     
     private int getKeyCodeFromString(String key){
         try{
-            Field field = KeyEvent.class.getDeclaredField("VK_" + key);
+            Field field = Input.Keys.class.getDeclaredField(key);
             return field.getInt(null);
         }
         catch(NoSuchFieldException e){

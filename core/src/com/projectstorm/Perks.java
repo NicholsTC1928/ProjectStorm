@@ -2,7 +2,7 @@ package com.projectstorm;
 
 import java.util.Random;
 import java.util.Arrays;
-import ProjectStorm.Player;
+import com.projectstorm.Player;
 
 public class Perks extends Player{
     public String getWunderfizzResult(){
