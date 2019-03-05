@@ -26,7 +26,7 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
-import org.ini4j.Ini;
+import org.ini4j.Ini.*;
 
 /*
 The following PC port necessities HAVE BEEN properly implemented:
@@ -171,6 +171,7 @@ public class Game extends ApplicationAdapter {
     Texture img;
     OrthographicCamera camera;
     Viewport viewport;
+    ShapeRenderer shapeRenderer;
     BitmapFont fontArialNarrow;
     FreeTypeFontGenerator gen;
 
@@ -178,6 +179,7 @@ public class Game extends ApplicationAdapter {
     public void create () {
         batch = new SpriteBatch();
         img = new Texture("badlogic.jpg");
+        shapeRenderer = new ShapeRenderer();
         gen = new FreeTypeFontGenerator(Gdx.files.internal("fonts/ARIALN.TTF"));
         FreeTypeFontParameter param = new FreeTypeFontParameter();
         param.size = 54;
@@ -192,9 +194,9 @@ public class Game extends ApplicationAdapter {
     }
 
     public void initFieldValuesFromINIFile(){
-        Ini configINI;
+        Wini configINI;
         try {
-            configINI = new Ini(new File("%AppData%/ProjectStorm/Config.ini"));
+            configINI = new Wini(new File("Config.ini")); //Use "%AppData%/ProjectStorm/Config.ini"
             this.isDebugModeOn = configINI.get("General","isDebugModeOn",boolean.class);
             this.displayFPSCount = configINI.get("General","displayFPSCount",boolean.class);
             this.moveUpKey = configINI.get("Key Bindings","moveUpKey",String.class);
@@ -400,6 +402,11 @@ public class Game extends ApplicationAdapter {
         spawnEnemiesTimer.cancel();
         this.spawnEnemiesTimerIsStopped = true;
     }
+    
+    private void drawPlayer(Graphics g){
+        shapeRenderer.setColor(Color.WHITE);
+        //shapeRenderer.rect(
+    }
 /*
     private void drawPlayer(Graphics g){
         //Replace the rectangle with the image of the player when it is ready.
@@ -505,6 +512,7 @@ public class Game extends ApplicationAdapter {
         //has not been implemented.
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         batch.setProjectionMatrix(camera.combined);
+        shapeRenderer.setProjectionMatrix(camera.combined);
         fontArialNarrow.setColor(0,1,0,1);
         batch.begin();
         fontArialNarrow.draw(batch,framesToDisplay + " FPS",10,(camera.viewportHeight - 10));
