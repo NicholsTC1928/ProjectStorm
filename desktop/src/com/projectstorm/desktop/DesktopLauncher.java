@@ -3,7 +3,7 @@ package com.projectstorm.desktop;
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication;
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration;
 import com.projectstorm.Game;
-import org.ini4j.Ini;
+import org.ini4j.Ini.*;
 
 import java.io.File;
 
@@ -56,7 +56,7 @@ public class DesktopLauncher {
 
 	public static void initFieldValuesFromINIFile(){
 	    try{
-	        Ini configINI = new Ini(new File("%AppData%/ProjectStorm/Config.ini"));
+	        Wini configINI = new Wini(new File("Config.ini")); //Use "%AppData%/ProjectStorm/Config.ini"
 	        pauseGameWhenNotInFocus = configINI.get("General","pauseGameWhenNotInFocus",boolean.class);
 	        isFPSCapped = configINI.get("Video","isFPSCapped",boolean.class);
 	        FPSCap = configINI.get("Video","FPSCap",int.class);
