@@ -188,9 +188,9 @@ public class Game extends ApplicationAdapter {
         //fontArialNarrow = new BitmapFont(Gdx.files.internal("CustomFont.fnt"));
 
         camera = new OrthographicCamera();
-        viewport = new FitViewport(1920,1080,camera);
+        viewport = new FitViewport(400,225,camera);
         viewport.apply();
-        camera.position.set((camera.viewportWidth / 2),(camera.viewportHeight / 2),0);
+        camera.position.set((viewport.getWorldWidth() / 2),(viewport.getWorldHeight() / 2),0);
     }
 
     public void initFieldValuesFromINIFile(){
@@ -515,7 +515,8 @@ public class Game extends ApplicationAdapter {
         shapeRenderer.setProjectionMatrix(camera.combined);
         fontArialNarrow.setColor(0,1,0,1);
         batch.begin();
-        fontArialNarrow.draw(batch,framesToDisplay + " FPS",10,(camera.viewportHeight - 10));
+        //Find out if the following line displays the FPS within the viewport, or if it uses the actual screen resolution.
+        fontArialNarrow.draw(batch,framesToDisplay + " FPS",10,(viewport.getWorldHeight() - 10)); //camera.viewportHeight
         //Add other drawing tasks here
         batch.end();
     }
@@ -532,7 +533,8 @@ public class Game extends ApplicationAdapter {
 
     @Override public void resize(int width,int height){
         viewport.update(width,height);
-        camera.position.set((camera.viewportWidth / 2),(camera.viewportHeight / 2),0);
+        camera.position.set((viewport.getWorldWidth() / 2),(viewport.getWorldHeight() / 2),0); //This line may not be
+        //necessary.
     }
 /*
     @Override public void run(){
