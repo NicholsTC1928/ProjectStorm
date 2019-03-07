@@ -85,6 +85,8 @@ public class Game extends ApplicationAdapter {
     private boolean isFacingLeft = false;
     private boolean isFacingRight = false;
     private boolean isShooting = false;
+    private boolean isDiving = false;
+    private boolean isEligibleForDiveSlide = false;
     private boolean stopShootingAutomaticWeapon = false;
     private boolean isAbleToShoot = true;
     private boolean isAbleToShootCheck = true;
@@ -94,7 +96,7 @@ public class Game extends ApplicationAdapter {
     private boolean weapon3Cooldown = false;
     Timer autoFireTimer;
     TimerTask autoFireTask;
-
+    private boolean isSliding = false;
     
     //The following consists of key binding variables. The non-final variables could be changed by reading a 
     //configuration value.
@@ -592,6 +594,52 @@ public class Game extends ApplicationAdapter {
     private boolean isKeyBeingPressed(String key){
         return (Gdx.input.isKeyPressed(Input.Keys.valueOf(key)));
     }
+    
+    private void slideAction(int direction){
+        if(this.isSliding) return;
+        else if(this.isDiving && !this.isEligibleForDiveSlide) return;
+        else{
+            this.isSliding = true;
+            Timer slideTimer = new Timer();
+            TimerTask slideTask = new TimerTask(){
+                @Override public void run(){
+                    this.isSliding = false;
+                }
+            };
+            if(this.isEligibleForDiveSlide) slideTimer.schedule(slideTask,(player.getSlideLengthInMs() * 1.25));
+            else slideTimer.schedule(slideTask,player.getSlideLengthInMs());
+        }
+    }
+    
+    private void diveAction(int direction){
+        if(this.isSliding || this.isDiving) return;
+        else{
+            this.isDiving = true;
+            Timer diveTimer = new Timer();
+            TimerTask diveTask = new TimerTask(){
+                @Override public void run(){
+                    this.isDiving = false;
+                    this.isEligibleForDiveSlide = false;
+                }
+            };
+            diveTimer.schedule(diveTask,1000);
+            Timer diveSlideTimer = new Timer();
+            TimerTask diveSlideTask = new TimerTask(){
+                @Override public void run(){
+                    this.isEligibleForDiveSlide = true;
+                }
+            };
+            diveSlideTimer.schedule(diveSlideTask,900);
+        }
+    }
+    
+    private int getCurrentDirectionForManeuvers(){
+        if(this.isMovingUp && !this.isMovingDown && !this.isMovingLeft && !this.isMovingRight) return 0;
+        else if(!this.isMovingUp && this.isMovingDown && !this.isMovingLeft && !this.isMovingRight) return 1;
+        else if(!this.isMovingUp && !this.isMovingDown && this.isMovingLeft && !this.isMovingRight) return 2;
+        else if(!this.isMovingUp && !this.isMovingDown && !this.isMovingLeft && this.isMovingRight) return 3;
+        else return -1;
+    }
 
     private void updateGameLogic(double dt){
         /*
@@ -603,25 +651,52 @@ public class Game extends ApplicationAdapter {
         this.isMovingDown = isKeyBeingPressed(moveDownKey);
         this.isMovingLeft = isKeyBeingPressed(moveLeftKey);
         this.isMovingRight = isKeyBeingPressed(moveRightKey);
+        if(isKeyBeingPressed(dolphinDiveKey)){
+            int direction = getCurrentDirectionForManeuvers();
+            if(direction != -1) diveAction(direction);
+        }
+        else if(isKeyBeingPressed(slideKey)){
+            int direction = getCurrentDirectionForManeuvers();
+            if(direction != -1) slideAction(direction);
+        }
+        //Make sure to check diving before sliding, so that the "dive-slide" maneuver is possible.
         player.setSpeedX(player.getSpeedX() * player.getSpeedMultiplier() * dt);
         player.setSpeedY(player.getSpeedY() * player.getSpeedMultiplier() * dt);
         if(this.isDebugModeOn){
             //System.out.println("dt: " + dt);
             //System.out.println(player.getSpeedX() + " / " + player.getSpeedY());
         }
-        if(this.isMovingUp && !this.isMovingDown){
+        if(this.isSliding || this.isDiving){
+            switch(getCurrentDirectionForManeuvers()){
+                case 0:
+                    player.changeCurrentYPosBy(player.getSpeedY() * -1.0);
+                    break;
+                case 1:
+                    player.changeCurrentYPosBy(player.getSpeedY());
+                    break;
+                case 2:
+                    player.changeCurrentXPosBy(player.getSpeedX() * -1.0);
+                    break;
+                case 3:
+                    player.changeCurrentXPosBy(player.getSpeedX());
+                    break;
+                default:
+                    break;
+            }
+        }
+        if(this.isMovingUp && !this.isMovingDown && !this.isSliding && !this.isDiving){
             player.changeCurrentYPosBy(player.getSpeedY() * -1.0);
             changeFacingDirection("Up");
         }
-        else if(this.isMovingDown && !this.isMovingUp){
+        else if(this.isMovingDown && !this.isMovingUp && !this.isSliding && !this.isDiving){
             player.changeCurrentYPosBy(player.getSpeedY());
             changeFacingDirection("Down");
         }
-        if(this.isMovingLeft && !this.isMovingRight){
+        if(this.isMovingLeft && !this.isMovingRight && !this.isSliding && !this.isDiving){
             player.changeCurrentXPosBy(player.getSpeedX() * -1.0);
             changeFacingDirection("Left");
         }
-        else if(this.isMovingRight && !this.isMovingLeft){
+        else if(this.isMovingRight && !this.isMovingLeft && !this.isSliding && !this.isDiving){
             player.changeCurrentXPosBy(player.getSpeedX());
             changeFacingDirection("Right");
         }
