@@ -73,6 +73,8 @@ public class Player extends MovableObject{
     private int weapon1CooldownTimer = 0;
     private int weapon2CooldownTimer = 0;
     private int weapon3CooldownTimer = 0;
+    private int slideLengthInMs = 1000;
+    private boolean canChangeDirection = true;
     
     public Player(){
         this.setHealth(100);
@@ -209,6 +211,31 @@ public class Player extends MovableObject{
     
     public int getEquippedWeaponIndex(){
         return this.equippedWeaponIndex;
+    }
+    
+    public int getSlideLengthInMs(){
+        return this.slideLengthInMs;
+    }
+    
+    public void setSlideLengthInMs(int value){
+        this.slideLengthInMs = value;
+    }
+    
+    public int getSlideLengthInS(){
+        return (this.slideLengthInMs / 1000);
+    }
+    
+    public boolean getCanChangeDirection(){
+        return this.canChangeDirection;
+    }
+    
+    public void setCanChangeDirection(boolean value){
+        this.canChangeDirection = value;
+    }
+    
+    public void toggleCanChangeDirection(){
+        if(this.canChangeDirection) this.canChangeDirection = false;
+        else this.canChangeDirection = true;
     }
     
     public void checkIfDead(){
